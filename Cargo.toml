@@ -1,0 +1,12 @@
+[package]
+name = "discord-gacha"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenv = "0.15.0"
+poise = "0.6.1"
+reqwest = "0.11.24"
+serenity = "0.12.0"
+sheets = "0.7.0"
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
