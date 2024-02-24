@@ -1,13 +1,12 @@
 use serenity::prelude::*;
 
-mod order_number;
+mod graphql;
 mod shopify;
 
-use order_number::OrderNumber;
-use shopify::Shopify;
+use shopify::OrderNumber;
 
 struct Data {
-    shopify: Shopify,
+    shopify: shopify::Client,
     sheets: sheets::Client,
 }
 
@@ -16,10 +15,10 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[poise::command(slash_command, prefix_command)]
 async fn pull(
-    _ctx: Context<'_>,
+    ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
 ) -> Result<(), Error> {
-    // Look up Shopify order
+    let order = ctx.data().shopify.get_order(order_number).await?;
     // Confirm number of pulls
     // Save pull state in database (Google Sheet?)
     // Create the Discord post for the pull, with options buttons
@@ -49,11 +48,10 @@ async fn main() {
                         .expect("SHEETS_REFRESH_TOKEN is required"),
                 );
 
-                let shopify = Shopify::new(
+                let shopify = shopify::Client::new(
                     std::env::var("SHOPIFY_SHOP").expect("SHOPIFY_SHOP is required"),
                     std::env::var("SHOPIFY_TOKEN").expect("SHOPIFY_TOKEN is required"),
-                )
-                .unwrap();
+                );
 
                 Ok(Data { shopify, sheets })
             })
