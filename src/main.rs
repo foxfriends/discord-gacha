@@ -1,5 +1,5 @@
 use a1_notation::Address;
-use image::imageops::{FilterType, overlay};
+use image::imageops::{overlay, FilterType};
 use image::load_from_memory;
 use poise::serenity_prelude::*;
 use poise::CreateReply;
@@ -111,7 +111,10 @@ async fn pull(
         .resize(180, 180, FilterType::Triangle);
     overlay(&mut summon, &robin, 270, 90);
     let mut bytes: Vec<u8> = Vec::new();
-    summon.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageOutputFormat::Png)?;
+    summon.write_to(
+        &mut std::io::Cursor::new(&mut bytes),
+        image::ImageOutputFormat::Png,
+    )?;
 
     ctx.send(
         CreateReply::default()
