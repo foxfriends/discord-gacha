@@ -1,7 +1,8 @@
+use a1_notation::Address;
 use serenity::prelude::*;
 use sheets::types::{
-    DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption,
-    ValueRange, ValueRenderOption,
+    DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption, ValueRange,
+    ValueRenderOption,
 };
 
 mod graphql;
@@ -39,29 +40,58 @@ async fn pull(
     log::debug!("order={:#?}", order);
     let pulls = order.line_items.nodes.len(); // TODO: Check for matching SKUs
 
-    data.sheets
+    let spreadsheet = data
+        .sheets
         .spreadsheets()
-        .values_append(
-            &sheet_id(),
-            "A1:D1",
-            false,
-            InsertDataOption::InsertRows,
-            DateTimeRenderOption::Noop,
-            ValueRenderOption::Noop,
-            ValueInputOption::Raw,
-            &ValueRange {
-                major_dimension: Some(Dimension::Rows),
-                range: "A1:D1".to_owned(),
-                values: vec![vec![
-                    order_number.to_string(),
-                    ctx.interaction.user.id.to_string(),
-                    ctx.interaction.user.name.to_string(),
-                    pulls.to_string(),
-                    "".to_owned(),
-                ]],
-            },
-        )
+        .get(&sheet_id(), false, &[])
         .await?;
+    let properties = spreadsheet.body.sheets[0].properties.as_ref().unwrap();
+    let grid_properties = properties.grid_properties.as_ref().unwrap();
+
+    let response = data
+        .sheets
+        .spreadsheets()
+        .values_get(
+            &sheet_id(),
+            &format!("A2:{}", Address::new(0, grid_properties.row_count as usize)),
+            DateTimeRenderOption::Noop,
+            Dimension::Columns,
+            ValueRenderOption::Noop,
+        )
+        .await?
+        .body;
+        dbg!(&response);
+    let order_numbers = response
+        .values
+        .first()
+        .unwrap_or(&vec![])
+        .iter()
+        .map(|val| val.parse().ok())
+        .collect::<Vec<Option<OrderNumber>>>();
+    if !order_numbers.contains(&Some(order_number)) {
+        data.sheets
+            .spreadsheets()
+            .values_append(
+                &sheet_id(),
+                "A1:D1",
+                false,
+                InsertDataOption::InsertRows,
+                DateTimeRenderOption::Noop,
+                ValueRenderOption::Noop,
+                ValueInputOption::Raw,
+                &ValueRange {
+                    major_dimension: Some(Dimension::Rows),
+                    range: "A1:D1".to_owned(),
+                    values: vec![vec![
+                        order_number.to_string(),
+                        ctx.interaction.user.id.to_string(),
+                        ctx.interaction.user.name.to_string(),
+                        pulls.to_string(),
+                    ]],
+                },
+            )
+            .await?;
+    }
 
     // Create the Discord post for the pull, with options buttons
 
