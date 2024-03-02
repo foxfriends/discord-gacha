@@ -14,7 +14,7 @@ impl Client {
     pub fn new(shop: impl AsRef<str>, token: impl AsRef<str>) -> Self {
         let mut headers = HeaderMap::new();
         headers.insert(
-            "X-Client-Access-Token",
+            "X-Shopify-Access-Token",
             HeaderValue::from_str(token.as_ref()).unwrap(),
         );
         headers.insert("Content-Type", HeaderValue::from_static("application/json"));
@@ -32,16 +32,19 @@ impl Client {
             "https://{}.myshopify.com/admin/api/2024-01/graphql.json",
             self.shop,
         );
+        log::trace!("graphql query: {}", query);
         let response = self
             .client
             .post(url)
             .body(json! {{ "query": query }}.to_string())
             .send()
             .await?;
-        match response.json().await {
-            Ok(GraphQLResponse::Success { data }) => Ok(data),
-            Ok(GraphQLResponse::Error { errors }) => Err(Error::GraphQL(errors)),
-            Err(..) => Err(Error::Json),
+        log::trace!("http response status: {}", response.status());
+        let body = response.text().await?;
+        log::trace!("http response body: {}", body);
+        match serde_json::from_str(&body)? {
+            GraphQLResponse::Success { data, .. } => Ok(data),
+            GraphQLResponse::Error { errors } => Err(Error::GraphQL(errors)),
         }
     }
 
@@ -55,11 +58,13 @@ impl Client {
             .post_graphql(format!(
                 r#"
             query GetOrder {{
-                orders(query: "name={order_number}") {{
+                orders(first: 1, query: "name:'{order_number}'") {{
                     nodes {{
-                        lineItems {{
-                            sku
-                            quantity
+                        lineItems(first: 30) {{
+                            nodes {{
+                                sku
+                                quantity
+                            }}
                         }}
                     }}
                 }}
@@ -67,6 +72,10 @@ impl Client {
             "#,
             ))
             .await?;
-        Ok(response.orders.nodes.remove(0))
+        if response.orders.nodes.is_empty() {
+            Err(Error::Custom(format!("order {order_number} was not found")))
+        } else {
+            Ok(response.orders.nodes.remove(0))
+        }
     }
 }

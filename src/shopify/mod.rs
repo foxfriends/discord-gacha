@@ -1,3 +1,4 @@
+use crate::graphql::Connection;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 use std::str::FromStr;
@@ -8,13 +9,13 @@ mod error;
 pub use client::Client;
 pub use error::Error;
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename = "camelCase")]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Order {
-    pub line_items: Vec<LineItem>,
+    pub line_items: Connection<LineItem>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LineItem {
     pub sku: String,
     pub quantity: usize,

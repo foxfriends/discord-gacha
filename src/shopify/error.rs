@@ -5,7 +5,8 @@ use std::fmt::{self, Display};
 pub enum Error {
     GraphQL(Vec<GraphQLError>),
     Reqwest(reqwest::Error),
-    Json,
+    Json(serde_json::Error),
+    Custom(String),
 }
 
 impl From<reqwest::Error> for Error {
@@ -18,6 +19,15 @@ impl std::error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            Self::Custom(message) => message.fmt(f),
+            _ => write!(f, "An unexpected error has occurred: `{:?}`", self),
+        }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Json(error)
     }
 }

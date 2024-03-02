@@ -18,14 +18,19 @@ fn sheet_id() -> String {
     std::env::var("SHEETS_SHEET_ID").unwrap()
 }
 
+/// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
+///
+/// Requires a valid purchase order number from https://kittyalyst.com.
 #[poise::command(slash_command, prefix_command)]
 async fn pull(
     ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
 ) -> Result<(), Error> {
+    log::info!("User attempting pull: {}", order_number);
     let data = ctx.data();
     let order = data.shopify.get_order(order_number).await?;
-    let pulls = order.line_items.len(); // TODO: Check for matching SKUs
+    log::debug!("order={:#?}", order);
+    let pulls = order.line_items.nodes.len(); // TODO: Check for matching SKUs
 
     let spreadsheet = data
         .sheets
@@ -52,8 +57,12 @@ async fn pull(
         )
         .await?
         .body;
-    let order_number_column = column_headers.values[0].iter().position(|x| x == "Order Number");
-    let discord_user_column = column_headers.values[0].iter().position(|x| x == "Discord User");
+    let order_number_column = column_headers.values[0]
+        .iter()
+        .position(|x| x == "Order Number");
+    let discord_user_column = column_headers.values[0]
+        .iter()
+        .position(|x| x == "Discord User");
     let pulls_column = column_headers.values[0].iter().position(|x| x == "Pulls");
 
     // Save pull state in database (Google Sheet?)
@@ -65,6 +74,12 @@ async fn pull(
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
+    pretty_env_logger::init();
+
+    println!(
+        "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions2048=&scope=bot%20applications.commands",
+        std::env::var("DISCORD_APPLICATION_ID").expect("DISCORD_APPLICATION_ID is required")
+    );
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {

@@ -1,14 +1,14 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum GraphQLResponse<T> {
-    Success { data: T },
+    Success { data: T, extensions: Value },
     Error { errors: Vec<GraphQLError> },
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Connection<T> {
     pub nodes: Vec<T>,
 }
