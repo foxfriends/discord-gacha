@@ -21,6 +21,7 @@ pub struct LineItem {
     pub quantity: usize,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OrderNumber(u32);
 
 impl FromStr for OrderNumber {

@@ -1,6 +1,8 @@
-use a1_notation::Address;
 use serenity::prelude::*;
-use sheets::types::{DateTimeRenderOption, Dimension, GridProperties, ValueRenderOption};
+use sheets::types::{
+    DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption,
+    ValueRange, ValueRenderOption,
+};
 
 mod graphql;
 mod shopify;
@@ -27,56 +29,40 @@ async fn pull(
     ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
 ) -> Result<(), Error> {
+    let Context::Application(ctx) = ctx else {
+        unreachable!("Slash command is always this");
+    };
+
     log::info!("User attempting pull: {}", order_number);
     let data = ctx.data();
     let order = data.shopify.get_order(order_number).await?;
     log::debug!("order={:#?}", order);
     let pulls = order.line_items.nodes.len(); // TODO: Check for matching SKUs
 
-    let spreadsheet = data
-        .sheets
+    data.sheets
         .spreadsheets()
-        .get(&sheet_id(), true, &[])
-        .await?
-        .body;
-    let grid_properties = spreadsheet.sheets[0]
-        .properties
-        .as_ref()
-        .unwrap()
-        .grid_properties
-        .as_ref()
-        .unwrap();
-    let column_headers = data
-        .sheets
-        .spreadsheets()
-        .values_get(
+        .values_append(
             &sheet_id(),
-            &format!(
-                "{}:{}",
-                Address::new(0, 0),
-                Address::new(grid_properties.column_count as usize, 0)
-            ),
+            "A1:D1",
+            false,
+            InsertDataOption::InsertRows,
             DateTimeRenderOption::Noop,
-            Dimension::Rows,
             ValueRenderOption::Noop,
+            ValueInputOption::Raw,
+            &ValueRange {
+                major_dimension: Some(Dimension::Rows),
+                range: "A1:D1".to_owned(),
+                values: vec![vec![
+                    order_number.to_string(),
+                    ctx.interaction.user.id.to_string(),
+                    ctx.interaction.user.name.to_string(),
+                    pulls.to_string(),
+                    "".to_owned(),
+                ]],
+            },
         )
-        .await?
-        .body;
+        .await?;
 
-    let order_number_column = column_headers.values[0]
-        .iter()
-        .position(|x| x == "Order Number")
-        .expect("`Order Number` column must exist");
-    let discord_user_column = column_headers.values[0]
-        .iter()
-        .position(|x| x == "Discord User")
-        .expect("`Discord User` column must exist");
-    let pulls_column = column_headers.values[0]
-        .iter()
-        .position(|x| x == "Pulls")
-        .expect("`Pulls` column must exist");
-
-    // Save pull state in database (Google Sheet?)
     // Create the Discord post for the pull, with options buttons
 
     Ok(())
@@ -87,7 +73,7 @@ async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
 
-    let mut sheets = sheets::Client::new(
+    let sheets = sheets::Client::new(
         std::env::var("SHEETS_CLIENT_ID").expect("SHEETS_CLIENT_ID is required"),
         std::env::var("SHEETS_CLIENT_SECRET").expect("SHEETS_CLIENT_SECRET is required"),
         std::env::var("SHEETS_REDIRECT_URI").expect("SHEETS_REDIRECT_URI is required"),
