@@ -1,5 +1,8 @@
 use a1_notation::Address;
-use serenity::prelude::*;
+use image::imageops::{FilterType, overlay};
+use image::load_from_memory;
+use poise::serenity_prelude::*;
+use poise::CreateReply;
 use sheets::types::{
     DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption, ValueRange,
     ValueRenderOption,
@@ -18,6 +21,9 @@ struct Data {
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
+const SUMMON_PNG: &[u8] = include_bytes!("../assets/summon.png");
+const ROBIN_PNG: &[u8] = include_bytes!("../assets/Robin.png");
+
 fn sheet_id() -> String {
     std::env::var("SHEETS_SHEET_ID").unwrap()
 }
@@ -25,7 +31,7 @@ fn sheet_id() -> String {
 /// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
 ///
 /// Requires a valid purchase order number from https://kittyalyst.com.
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn pull(
     ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
@@ -37,8 +43,12 @@ async fn pull(
     log::info!("User attempting pull: {}", order_number);
     let data = ctx.data();
     let order = data.shopify.get_order(order_number).await?;
-    log::debug!("order={:#?}", order);
+    log::debug!("Pulling for order: {:#?}", order);
     let pulls = order.line_items.nodes.len(); // TODO: Check for matching SKUs
+
+    if data.sheets.is_expired().await != Some(false) {
+        data.sheets.refresh_access_token().await?;
+    }
 
     let spreadsheet = data
         .sheets
@@ -60,7 +70,7 @@ async fn pull(
         )
         .await?
         .body;
-        dbg!(&response);
+
     let order_numbers = response
         .values
         .first()
@@ -94,6 +104,21 @@ async fn pull(
     }
 
     // Create the Discord post for the pull, with options buttons
+
+    let mut summon = load_from_memory(SUMMON_PNG).unwrap();
+    let robin = load_from_memory(ROBIN_PNG)
+        .unwrap()
+        .resize(180, 180, FilterType::Triangle);
+    overlay(&mut summon, &robin, 270, 90);
+    let mut bytes: Vec<u8> = Vec::new();
+    summon.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageOutputFormat::Png)?;
+
+    ctx.send(
+        CreateReply::default()
+            .content("Select a stone. The colors indicate the Hero types.")
+            .attachment(CreateAttachment::bytes(bytes, "summon.png")),
+    )
+    .await?;
 
     Ok(())
 }
