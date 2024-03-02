@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+a1_notation = "0.4.3"
 dotenv = "0.15.0"
 log = "0.4.21"
 poise = "0.6.1"

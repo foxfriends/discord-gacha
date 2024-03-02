@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "a1_notation"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0941733a1e0ff30e7d5a06798999bc900f738a6882c2dad13e75096e9375d1b5"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,6 +387,7 @@ dependencies = [
 name = "discord-gacha"
 version = "0.1.0"
 dependencies = [
+ "a1_notation",
  "dotenv",
  "log",
  "poise",

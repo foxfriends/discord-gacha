@@ -1,3 +1,4 @@
+use a1_notation::Address;
 use serenity::prelude::*;
 use sheets::types::{DateTimeRenderOption, Dimension, GridProperties, ValueRenderOption};
 
@@ -50,20 +51,30 @@ async fn pull(
         .spreadsheets()
         .values_get(
             &sheet_id(),
-            &format!("A1:A{}", grid_properties.column_count),
+            &format!(
+                "{}:{}",
+                Address::new(0, 0),
+                Address::new(grid_properties.column_count as usize, 0)
+            ),
             DateTimeRenderOption::Noop,
-            Dimension::Columns,
+            Dimension::Rows,
             ValueRenderOption::Noop,
         )
         .await?
         .body;
+
     let order_number_column = column_headers.values[0]
         .iter()
-        .position(|x| x == "Order Number");
+        .position(|x| x == "Order Number")
+        .expect("`Order Number` column must exist");
     let discord_user_column = column_headers.values[0]
         .iter()
-        .position(|x| x == "Discord User");
-    let pulls_column = column_headers.values[0].iter().position(|x| x == "Pulls");
+        .position(|x| x == "Discord User")
+        .expect("`Discord User` column must exist");
+    let pulls_column = column_headers.values[0]
+        .iter()
+        .position(|x| x == "Pulls")
+        .expect("`Pulls` column must exist");
 
     // Save pull state in database (Google Sheet?)
     // Create the Discord post for the pull, with options buttons
@@ -75,6 +86,14 @@ async fn pull(
 async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
+
+    let mut sheets = sheets::Client::new(
+        std::env::var("SHEETS_CLIENT_ID").expect("SHEETS_CLIENT_ID is required"),
+        std::env::var("SHEETS_CLIENT_SECRET").expect("SHEETS_CLIENT_SECRET is required"),
+        std::env::var("SHEETS_REDIRECT_URI").expect("SHEETS_REDIRECT_URI is required"),
+        std::env::var("SHEETS_ACCESS_TOKEN").expect("SHEETS_ACCESS_TOKEN is required"),
+        std::env::var("SHEETS_REFRESH_TOKEN").expect("SHEETS_REFRESH_TOKEN is required"),
+    );
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions2048=&scope=bot%20applications.commands",
@@ -89,15 +108,6 @@ async fn main() {
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                let sheets = sheets::Client::new(
-                    std::env::var("SHEETS_CLIENT_ID").expect("SHEETS_CLIENT_ID is required"),
-                    std::env::var("SHEETS_CLIENT_SECRET")
-                        .expect("SHEETS_CLIENT_SECRET is required"),
-                    std::env::var("SHEETS_REDIRECT_URI").expect("SHEETS_REDIRECT_URI is required"),
-                    std::env::var("SHEETS_ACCESS_TOKEN").expect("SHEETS_ACCESS_TOKEN is required"),
-                    std::env::var("SHEETS_REFRESH_TOKEN")
-                        .expect("SHEETS_REFRESH_TOKEN is required"),
-                );
 
                 let shopify = shopify::Client::new(
                     std::env::var("SHOPIFY_SHOP").expect("SHOPIFY_SHOP is required"),
