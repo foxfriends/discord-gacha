@@ -3,6 +3,7 @@ use image::imageops::{overlay, FilterType};
 use image::load_from_memory;
 use poise::serenity_prelude::*;
 use poise::CreateReply;
+use serde::{Deserialize, Serialize};
 use sheets::types::{
     DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption, ValueRange,
     ValueRenderOption,
@@ -28,6 +29,48 @@ fn sheet_id() -> String {
     std::env::var("SHEETS_SHEET_ID").unwrap()
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+enum Pool {
+    Red,
+    Blue,
+    Green,
+    White,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Banner {
+    pools: Vec<Pool>,
+    pulls: Vec<Option<String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PullsData {
+    bulks: usize,
+    singles: usize,
+    bulk_pulls: Vec<Banner>,
+    single_pulls: Vec<Banner>,
+}
+
+impl PullsData {
+    fn new(singles: usize, bulks: usize) -> Self {
+        Self {
+            singles,
+            bulks,
+            bulk_pulls: vec![],
+            single_pulls: vec![],
+        }
+    }
+
+    fn skus(&self) -> impl Iterator<Item = String> + '_ {
+        self.bulk_pulls
+            .iter()
+            .chain(self.single_pulls.iter())
+            .flat_map(|banner| banner.pulls.iter())
+            .flatten()
+            .cloned()
+    }
+}
+
 /// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
 ///
 /// Requires a valid purchase order number from https://kittyalyst.com.
@@ -37,14 +80,14 @@ async fn pull(
     #[description = "Order Number"] order_number: OrderNumber,
 ) -> Result<(), Error> {
     let Context::Application(ctx) = ctx else {
-        unreachable!("Slash command is always this");
+        unreachable!("Slash command is always application");
     };
 
     log::info!("User attempting pull: {}", order_number);
     let data = ctx.data();
     let order = data.shopify.get_order(order_number).await?;
     log::debug!("Pulling for order: {:#?}", order);
-    let pulls = order.line_items.nodes.len(); // TODO: Check for matching SKUs
+    let pulls = PullsData::new(3, 2);
 
     if data.sheets.is_expired().await != Some(false) {
         data.sheets.refresh_access_token().await?;
@@ -79,11 +122,19 @@ async fn pull(
         .map(|val| val.parse().ok())
         .collect::<Vec<Option<OrderNumber>>>();
     if !order_numbers.contains(&Some(order_number)) {
+        let mut values = vec![
+            order_number.to_string(),
+            ctx.interaction.user.id.to_string(),
+            ctx.interaction.user.name.to_string(),
+            serde_json::to_string(&pulls).unwrap(),
+        ];
+        values.extend(pulls.skus());
+        let range = format!("A2:{}", Address::new(values.len() - 1, 1));
         data.sheets
             .spreadsheets()
             .values_append(
                 &sheet_id(),
-                "A1:D1",
+                &range,
                 false,
                 InsertDataOption::InsertRows,
                 DateTimeRenderOption::Noop,
@@ -91,13 +142,8 @@ async fn pull(
                 ValueInputOption::Raw,
                 &ValueRange {
                     major_dimension: Some(Dimension::Rows),
-                    range: "A1:D1".to_owned(),
-                    values: vec![vec![
-                        order_number.to_string(),
-                        ctx.interaction.user.id.to_string(),
-                        ctx.interaction.user.name.to_string(),
-                        pulls.to_string(),
-                    ]],
+                    range: range.to_owned(),
+                    values: vec![values],
                 },
             )
             .await?;
