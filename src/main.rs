@@ -1,7 +1,8 @@
 use image::imageops::{overlay, FilterType};
 use image::load_from_memory;
-use poise::serenity_prelude::*;
-use poise::CreateReply;
+use poise::dispatch::FrameworkContext;
+use poise::serenity_prelude::{*, self as serenity};
+use poise::{BoxFuture, CreateReply};
 use serde::{Deserialize, Serialize};
 
 mod google;
@@ -90,28 +91,58 @@ async fn pull(
             PullsData::new(3, 2),
         )
     });
-    log::debug!("Pull state: {:?}", row);
+    log::debug!("Pull state: {:#?}", row);
 
     // Create the Discord post for the pull, with options buttons
-    let mut summon = load_from_memory(SUMMON_PNG).unwrap();
-    let robin = load_from_memory(ROBIN_PNG)
-        .unwrap()
-        .resize(180, 180, FilterType::Triangle);
-    overlay(&mut summon, &robin, 270, 90);
-    let mut bytes: Vec<u8> = Vec::new();
-    summon.write_to(
-        &mut std::io::Cursor::new(&mut bytes),
-        image::ImageOutputFormat::Png,
-    )?;
+    // let mut summon = load_from_memory(SUMMON_PNG).unwrap();
+    // let robin = load_from_memory(ROBIN_PNG)
+    //     .unwrap()
+    //     .resize(180, 180, FilterType::Triangle);
+    // overlay(&mut summon, &robin, 270, 90);
+    // let mut bytes: Vec<u8> = Vec::new();
+    // summon.write_to(
+    //     &mut std::io::Cursor::new(&mut bytes),
+    //     image::ImageOutputFormat::Png,
+    // )?;
+    // let message = CreateReply::default()
+    //     .content("Select a stone. The colors indicate the Hero types.")
+    //     .attachment(CreateAttachment::bytes(bytes, "summon.png"));
+
+    let mut buttons = vec![];
+
+    if row.pulls.singles - row.pulls.single_pulls.len() > 0 {
+        buttons.push(CreateButton::new(format!("single_{order_number}")).label("Pull 1"));
+    }
+
+    if row.pulls.bulks - row.pulls.bulk_pulls.len() > 0 {
+        buttons.push(CreateButton::new(format!("bulk_{order_number}")).label("Pull 5"));
+    }
+
     let message = CreateReply::default()
-        .content("Select a stone. The colors indicate the Hero types.")
-        .attachment(CreateAttachment::bytes(bytes, "summon.png"));
+        .content(format!(
+            "Order {order_number} has {} 5-pulls and {} single pulls. What would you like to do?",
+            row.pulls.bulks, row.pulls.singles
+        ))
+        .components(vec![CreateActionRow::Buttons(buttons)])
+        .ephemeral(true);
 
     data.sheets.save(row).await?;
 
     ctx.send(message).await?;
 
     Ok(())
+}
+
+fn event_handler<'a>(
+    context: &'a serenity::Context,
+    event: &'a FullEvent,
+    _: FrameworkContext<'a, Data, Error>,
+    data: &'a Data,
+) -> BoxFuture<'a, Result<(), Error>> {
+    log::info!("Received event: {:#?}", event);
+    Box::pin(async move {
+        Ok(())
+    })
 }
 
 #[tokio::main]
@@ -127,6 +158,7 @@ async fn main() {
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![pull()],
+            event_handler,
             ..Default::default()
         })
         .setup(move |ctx, _ready, framework| {
