@@ -1,22 +1,19 @@
-use a1_notation::Address;
 use image::imageops::{overlay, FilterType};
 use image::load_from_memory;
 use poise::serenity_prelude::*;
 use poise::CreateReply;
 use serde::{Deserialize, Serialize};
-use sheets::types::{
-    DateTimeRenderOption, Dimension, InsertDataOption, ValueInputOption, ValueRange,
-    ValueRenderOption,
-};
 
+mod google;
 mod graphql;
 mod shopify;
 
+use google::{Row, Sheets};
 use shopify::OrderNumber;
 
 struct Data {
     shopify: shopify::Client,
-    sheets: sheets::Client,
+    sheets: Sheets,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -24,10 +21,6 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 const SUMMON_PNG: &[u8] = include_bytes!("../assets/summon.png");
 const ROBIN_PNG: &[u8] = include_bytes!("../assets/Robin.png");
-
-fn sheet_id() -> String {
-    std::env::var("SHEETS_SHEET_ID").unwrap()
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 enum Pool {
@@ -87,70 +80,19 @@ async fn pull(
     let data = ctx.data();
     let order = data.shopify.get_order(order_number).await?;
     log::debug!("Pulling for order: {:#?}", order);
-    let pulls = PullsData::new(3, 2);
 
-    if data.sheets.is_expired().await != Some(false) {
-        data.sheets.refresh_access_token().await?;
-    }
-
-    let spreadsheet = data
-        .sheets
-        .spreadsheets()
-        .get(&sheet_id(), false, &[])
-        .await?;
-    let properties = spreadsheet.body.sheets[0].properties.as_ref().unwrap();
-    let grid_properties = properties.grid_properties.as_ref().unwrap();
-
-    let response = data
-        .sheets
-        .spreadsheets()
-        .values_get(
-            &sheet_id(),
-            &format!("A2:{}", Address::new(0, grid_properties.row_count as usize)),
-            DateTimeRenderOption::Noop,
-            Dimension::Columns,
-            ValueRenderOption::Noop,
-        )
-        .await?
-        .body;
-
-    let order_numbers = response
-        .values
-        .first()
-        .unwrap_or(&vec![])
-        .iter()
-        .map(|val| val.parse().ok())
-        .collect::<Vec<Option<OrderNumber>>>();
-    if !order_numbers.contains(&Some(order_number)) {
-        let mut values = vec![
-            order_number.to_string(),
+    let mut database = data.sheets.database().await?;
+    let row = database.remove(&order_number).unwrap_or_else(|| {
+        Row::new(
+            order_number,
             ctx.interaction.user.id.to_string(),
-            ctx.interaction.user.name.to_string(),
-            serde_json::to_string(&pulls).unwrap(),
-        ];
-        values.extend(pulls.skus());
-        let range = format!("A2:{}", Address::new(values.len() - 1, 1));
-        data.sheets
-            .spreadsheets()
-            .values_append(
-                &sheet_id(),
-                &range,
-                false,
-                InsertDataOption::InsertRows,
-                DateTimeRenderOption::Noop,
-                ValueRenderOption::Noop,
-                ValueInputOption::Raw,
-                &ValueRange {
-                    major_dimension: Some(Dimension::Rows),
-                    range: range.to_owned(),
-                    values: vec![values],
-                },
-            )
-            .await?;
-    }
+            ctx.interaction.user.name.to_owned(),
+            PullsData::new(3, 2),
+        )
+    });
+    log::debug!("Pull state: {:?}", row);
 
     // Create the Discord post for the pull, with options buttons
-
     let mut summon = load_from_memory(SUMMON_PNG).unwrap();
     let robin = load_from_memory(ROBIN_PNG)
         .unwrap()
@@ -161,13 +103,13 @@ async fn pull(
         &mut std::io::Cursor::new(&mut bytes),
         image::ImageOutputFormat::Png,
     )?;
+    let message = CreateReply::default()
+        .content("Select a stone. The colors indicate the Hero types.")
+        .attachment(CreateAttachment::bytes(bytes, "summon.png"));
 
-    ctx.send(
-        CreateReply::default()
-            .content("Select a stone. The colors indicate the Hero types.")
-            .attachment(CreateAttachment::bytes(bytes, "summon.png")),
-    )
-    .await?;
+    data.sheets.save(row).await?;
+
+    ctx.send(message).await?;
 
     Ok(())
 }
@@ -176,14 +118,6 @@ async fn pull(
 async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
-
-    let sheets = sheets::Client::new(
-        std::env::var("SHEETS_CLIENT_ID").expect("SHEETS_CLIENT_ID is required"),
-        std::env::var("SHEETS_CLIENT_SECRET").expect("SHEETS_CLIENT_SECRET is required"),
-        std::env::var("SHEETS_REDIRECT_URI").expect("SHEETS_REDIRECT_URI is required"),
-        std::env::var("SHEETS_ACCESS_TOKEN").expect("SHEETS_ACCESS_TOKEN is required"),
-        std::env::var("SHEETS_REFRESH_TOKEN").expect("SHEETS_REFRESH_TOKEN is required"),
-    );
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions2048=&scope=bot%20applications.commands",
@@ -199,6 +133,9 @@ async fn main() {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
+                let sheets = Sheets::new(
+                    std::env::var("SHEETS_SHEET_ID").expect("SHEETS_SHEET_ID is required"),
+                );
                 let shopify = shopify::Client::new(
                     std::env::var("SHOPIFY_SHOP").expect("SHOPIFY_SHOP is required"),
                     std::env::var("SHOPIFY_TOKEN").expect("SHOPIFY_TOKEN is required"),
