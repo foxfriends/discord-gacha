@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct OrderNumber(u32);
 
 impl FromStr for OrderNumber {

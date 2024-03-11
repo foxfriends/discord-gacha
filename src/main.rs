@@ -1,15 +1,15 @@
-use image::imageops::{overlay, FilterType};
-use image::load_from_memory;
 use poise::dispatch::FrameworkContext;
-use poise::serenity_prelude::{*, self as serenity};
-use poise::{BoxFuture, CreateReply};
+use poise::serenity_prelude::{self as serenity, *};
+use poise::BoxFuture;
 use serde::{Deserialize, Serialize};
 
-mod google;
+mod database;
+mod error;
 mod graphql;
 mod shopify;
 
-use google::{Row, Sheets};
+use database::{PullsData, Row, Sheets};
+use error::CustomError;
 use shopify::OrderNumber;
 
 struct Data {
@@ -20,49 +20,18 @@ struct Data {
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-const SUMMON_PNG: &[u8] = include_bytes!("../assets/summon.png");
-const ROBIN_PNG: &[u8] = include_bytes!("../assets/Robin.png");
-
-#[derive(Serialize, Deserialize, Debug)]
-enum Pool {
-    Red,
-    Blue,
-    Green,
-    White,
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+struct InteractionType {
+    order_number: OrderNumber,
+    action: Action,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Banner {
-    pools: Vec<Pool>,
-    pulls: Vec<Option<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct PullsData {
-    bulks: usize,
-    singles: usize,
-    bulk_pulls: Vec<Banner>,
-    single_pulls: Vec<Banner>,
-}
-
-impl PullsData {
-    fn new(singles: usize, bulks: usize) -> Self {
-        Self {
-            singles,
-            bulks,
-            bulk_pulls: vec![],
-            single_pulls: vec![],
-        }
-    }
-
-    fn skus(&self) -> impl Iterator<Item = String> + '_ {
-        self.bulk_pulls
-            .iter()
-            .chain(self.single_pulls.iter())
-            .flat_map(|banner| banner.pulls.iter())
-            .flatten()
-            .cloned()
-    }
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+enum Action {
+    Single,
+    Bulk,
+    Pull(usize),
+    Share,
 }
 
 /// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
@@ -82,66 +51,88 @@ async fn pull(
     let order = data.shopify.get_order(order_number).await?;
     log::debug!("Pulling for order: {:#?}", order);
 
-    let mut database = data.sheets.database().await?;
-    let row = database.remove(&order_number).unwrap_or_else(|| {
-        Row::new(
-            order_number,
-            ctx.interaction.user.id.to_string(),
-            ctx.interaction.user.name.to_owned(),
-            PullsData::new(3, 2),
-        )
-    });
+    let row = data
+        .sheets
+        .get_order(order_number)
+        .await?
+        .unwrap_or_else(|| {
+            Row::new(
+                order_number,
+                ctx.interaction.user.id.to_string(),
+                ctx.interaction.user.name.to_owned(),
+                PullsData::new(3, 2),
+            )
+        });
     log::debug!("Pull state: {:#?}", row);
 
-    // Create the Discord post for the pull, with options buttons
-    // let mut summon = load_from_memory(SUMMON_PNG).unwrap();
-    // let robin = load_from_memory(ROBIN_PNG)
-    //     .unwrap()
-    //     .resize(180, 180, FilterType::Triangle);
-    // overlay(&mut summon, &robin, 270, 90);
-    // let mut bytes: Vec<u8> = Vec::new();
-    // summon.write_to(
-    //     &mut std::io::Cursor::new(&mut bytes),
-    //     image::ImageOutputFormat::Png,
-    // )?;
-    // let message = CreateReply::default()
-    //     .content("Select a stone. The colors indicate the Hero types.")
-    //     .attachment(CreateAttachment::bytes(bytes, "summon.png"));
-
-    let mut buttons = vec![];
-
-    if row.pulls.singles - row.pulls.single_pulls.len() > 0 {
-        buttons.push(CreateButton::new(format!("single_{order_number}")).label("Pull 1"));
-    }
-
-    if row.pulls.bulks - row.pulls.bulk_pulls.len() > 0 {
-        buttons.push(CreateButton::new(format!("bulk_{order_number}")).label("Pull 5"));
-    }
-
-    let message = CreateReply::default()
-        .content(format!(
-            "Order {order_number} has {} 5-pulls and {} single pulls. What would you like to do?",
-            row.pulls.bulks, row.pulls.singles
-        ))
-        .components(vec![CreateActionRow::Buttons(buttons)])
-        .ephemeral(true);
-
+    let message = row.pulls.to_message(order_number)?;
     data.sheets.save(row).await?;
-
-    ctx.send(message).await?;
+    ctx.send(message.into_reply()).await?;
 
     Ok(())
 }
 
+async fn handle_interaction(
+    ctx: &serenity::Context,
+    interaction: &ComponentInteraction,
+    data: &Data,
+) -> Result<(), Error> {
+    let interaction_id: InteractionType = serde_json::from_str(&interaction.data.custom_id)?;
+    log::info!("Received interaction {:?}", interaction_id);
+    let mut row = data
+        .sheets
+        .get_order(interaction_id.order_number)
+        .await?
+        .ok_or_else(|| CustomError("Pull data for this order could not be found.".to_owned()))?;
+
+    match interaction_id.action {
+        Action::Single => row.pulls.start_banner_single()?,
+        Action::Bulk => row.pulls.start_banner_bulk()?,
+        Action::Pull(index) => row.pulls.pull_slot(index)?,
+        Action::Share => {}
+    }
+
+    let message = row.pulls.to_message(row.order_number)?;
+
+    data.sheets.save(row).await?;
+    ctx.http
+        .create_interaction_response(
+            interaction.id,
+            &interaction.token,
+            &CreateInteractionResponse::UpdateMessage(message.into_interaction_response()),
+            vec![],
+        )
+        .await?;
+    Ok(())
+}
+
 fn event_handler<'a>(
-    context: &'a serenity::Context,
+    ctx: &'a serenity::Context,
     event: &'a FullEvent,
     _: FrameworkContext<'a, Data, Error>,
     data: &'a Data,
 ) -> BoxFuture<'a, Result<(), Error>> {
-    log::info!("Received event: {:#?}", event);
     Box::pin(async move {
-        Ok(())
+        match event {
+            FullEvent::InteractionCreate {
+                interaction: Interaction::Component(interaction),
+            } => {
+                if let Err(error) = handle_interaction(ctx, interaction, data).await {
+                    ctx.http.create_interaction_response(
+                        interaction.id,
+                        &interaction.token,
+                        &CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::new()
+                                .ephemeral(true)
+                                .content(format!("Error: {error}")),
+                        ),
+                        vec![],
+                    ).await?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
     })
 }
 
