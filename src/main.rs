@@ -3,11 +3,13 @@ use poise::serenity_prelude::{self as serenity, *};
 use poise::BoxFuture;
 use serde::{Deserialize, Serialize};
 
+mod config;
 mod database;
 mod error;
 mod graphql;
 mod shopify;
 
+use config::Products;
 use database::{PullsData, Row, Sheets};
 use error::CustomError;
 use shopify::OrderNumber;
@@ -25,6 +27,8 @@ struct InteractionType {
     order_number: OrderNumber,
     action: Action,
 }
+
+const PRODUCTS: &str = include_str!("../products.toml");
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 enum Action {
@@ -118,16 +122,18 @@ fn event_handler<'a>(
                 interaction: Interaction::Component(interaction),
             } => {
                 if let Err(error) = handle_interaction(ctx, interaction, data).await {
-                    ctx.http.create_interaction_response(
-                        interaction.id,
-                        &interaction.token,
-                        &CreateInteractionResponse::Message(
-                            CreateInteractionResponseMessage::new()
-                                .ephemeral(true)
-                                .content(format!("Error: {error}")),
-                        ),
-                        vec![],
-                    ).await?;
+                    ctx.http
+                        .create_interaction_response(
+                            interaction.id,
+                            &interaction.token,
+                            &CreateInteractionResponse::Message(
+                                CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content(format!("Error: {error}")),
+                            ),
+                            vec![],
+                        )
+                        .await?;
                 }
                 Ok(())
             }
@@ -140,6 +146,9 @@ fn event_handler<'a>(
 async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
+
+    let pools = Products::from_toml(PRODUCTS).unwrap().into_pools();
+    println!("{}", pools.distribution());
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions2048=&scope=bot%20applications.commands",

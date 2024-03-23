@@ -1,0 +1,5 @@
+[[product]]
+name = "Name"
+sku = "SKU"
+pool = "Blue"
+rarity = 1
