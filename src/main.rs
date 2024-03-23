@@ -106,12 +106,13 @@ async fn handle_interaction(
     let message = row.pulls.to_message(row.order_number)?;
 
     data.sheets.save(row).await?;
+    let (response, files) = message.into_interaction_response();
     ctx.http
         .create_interaction_response(
             interaction.id,
             &interaction.token,
-            &CreateInteractionResponse::UpdateMessage(message.into_interaction_response()),
-            vec![],
+            &CreateInteractionResponse::UpdateMessage(response),
+            files,
         )
         .await?;
     Ok(())

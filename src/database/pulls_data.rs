@@ -13,16 +13,20 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn into_interaction_response(self) -> CreateInteractionResponseMessage {
+    pub fn into_interaction_response(
+        self,
+    ) -> (CreateInteractionResponseMessage, Vec<CreateAttachment>) {
         let response = CreateInteractionResponseMessage::new()
             .content(self.message)
             .components(self.buttons)
             .ephemeral(true);
 
         if let Some(image) = self.image {
-            response.files(vec![CreateAttachment::bytes(image, "summon.png")])
+            let file_placeholder = CreateAttachment::bytes(vec![], "summon.png");
+            let file = CreateAttachment::bytes(image, "summon.png");
+            (response.add_file(file_placeholder), vec![file])
         } else {
-            response
+            (response, vec![])
         }
     }
 
