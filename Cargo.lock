@@ -402,6 +402,7 @@ dependencies = [
  "log",
  "poise",
  "pretty_env_logger",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

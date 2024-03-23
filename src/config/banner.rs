@@ -1,4 +1,4 @@
-use super::Pool;
+use super::{Pool, Product};
 use image::imageops::{overlay, FilterType};
 use image::{load_from_memory, ImageError};
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ const ROBIN_PNG: &[u8] = include_bytes!("../../assets/Robin.png");
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Banner {
     pub pools: Vec<Pool>,
-    pub pulls: Vec<Option<String>>,
+    pub pulls: Vec<Option<Product>>,
 }
 
 impl Banner {

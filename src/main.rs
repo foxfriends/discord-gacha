@@ -9,7 +9,7 @@ mod error;
 mod graphql;
 mod shopify;
 
-use config::Products;
+use config::{Pools, Products};
 use database::{PullsData, Row, Sheets};
 use error::CustomError;
 use shopify::OrderNumber;
@@ -17,6 +17,7 @@ use shopify::OrderNumber;
 struct Data {
     shopify: shopify::Client,
     sheets: Sheets,
+    pools: Pools,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -92,7 +93,13 @@ async fn handle_interaction(
     match interaction_id.action {
         Action::Single => row.pulls.start_banner_single()?,
         Action::Bulk => row.pulls.start_banner_bulk()?,
-        Action::Pull(index) => row.pulls.pull_slot(index)?,
+        Action::Pull(index) => {
+            let pool = row.pulls.check_slot(index).ok_or_else(|| {
+                CustomError("There is no currently active pull".to_owned())
+            })?;
+            let product = data.pools.pull(pool);
+            row.pulls.pull_slot(index, product)?;
+        }
         Action::Share => {}
     }
 
@@ -173,7 +180,11 @@ async fn main() {
                     std::env::var("SHOPIFY_TOKEN").expect("SHOPIFY_TOKEN is required"),
                 );
 
-                Ok(Data { shopify, sheets })
+                Ok(Data {
+                    shopify,
+                    sheets,
+                    pools,
+                })
             })
         })
         .build();

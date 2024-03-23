@@ -1,4 +1,4 @@
-use crate::config::{Banner, Pool};
+use crate::config::{Banner, Pool, Product};
 use crate::shopify::OrderNumber;
 use crate::{Action, CustomError, InteractionType};
 use poise::serenity_prelude::*;
@@ -73,7 +73,7 @@ impl PullsData {
             .chain(self.single_pulls.iter())
             .flat_map(|banner| banner.pulls.iter())
             .flatten()
-            .cloned()
+            .map(|product| product.sku.to_owned())
     }
 
     fn pulled_singles(&self) -> usize {
@@ -224,7 +224,7 @@ impl PullsData {
         })
     }
 
-    pub fn pull_slot(&mut self, slot: usize) -> Result<(), CustomError> {
+    pub fn pull_slot(&mut self, slot: usize, pull: &Product) -> Result<(), CustomError> {
         let pulled_singles = self.pulled_singles();
         match &mut self.active {
             ActiveBanner::Single(..) if pulled_singles >= self.singles => {
@@ -245,8 +245,7 @@ impl PullsData {
                 ))
             }
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) => {
-                let pool = banner.pools[slot];
-                banner.pulls[slot] = Some("Robin".to_owned());
+                banner.pulls[slot] = Some(pull.clone());
             }
             ActiveBanner::None => {
                 return Err(CustomError(
@@ -255,6 +254,13 @@ impl PullsData {
             }
         }
         Ok(())
+    }
+
+    pub fn check_slot(&self, slot: usize) -> Option<Pool> {
+        match &self.active {
+            ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) => Some(banner.pools[slot]),
+            _ => None,
+        }
     }
 
     pub fn start_banner_single(&mut self) -> Result<(), CustomError> {
