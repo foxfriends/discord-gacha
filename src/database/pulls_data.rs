@@ -51,6 +51,15 @@ pub enum ActiveBanner {
     None,
 }
 
+impl ActiveBanner {
+    fn as_banner(&self) -> Option<&Banner> {
+        match &self {
+            Self::Single(banner) | Self::Bulk(banner) => Some(banner),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PullsData {
     pub bulks: usize,
@@ -75,9 +84,20 @@ impl PullsData {
         self.bulk_pulls
             .iter()
             .chain(self.single_pulls.iter())
+            .chain(self.active.as_banner())
             .flat_map(|banner| banner.pulls.iter())
             .flatten()
             .map(|product| product.sku.to_owned())
+    }
+
+    pub fn names(&self) -> impl Iterator<Item = String> + '_ {
+        self.bulk_pulls
+            .iter()
+            .chain(self.single_pulls.iter())
+            .chain(self.active.as_banner())
+            .flat_map(|banner| banner.pulls.iter())
+            .flatten()
+            .map(|product| product.name.to_owned())
     }
 
     fn pulled_singles(&self) -> usize {
@@ -228,6 +248,23 @@ impl PullsData {
         })
     }
 
+    pub fn to_share_message(
+        self,
+        discord_reference: String,
+    ) -> Result<CreateMessage, crate::Error> {
+        let response =
+            CreateMessage::new().content(format!("{discord_reference} has shared their pull!"));
+
+        match self.active.as_banner() {
+            Some(banner) => {
+                let image = banner.to_image()?;
+                let file = CreateAttachment::bytes(image, "summon.png");
+                Ok(response.add_file(file))
+            }
+            _ => Ok(response),
+        }
+    }
+
     pub fn pull_slot(&mut self, slot: usize, pull: &Product) -> Result<(), CustomError> {
         let pulled_singles = self.pulled_singles();
         match &mut self.active {
@@ -261,10 +298,7 @@ impl PullsData {
     }
 
     pub fn check_slot(&self, slot: usize) -> Option<Pool> {
-        match &self.active {
-            ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) => Some(banner.pools[slot]),
-            _ => None,
-        }
+        Some(self.active.as_banner()?.pools[slot])
     }
 
     pub fn start_banner_single(&mut self) -> Result<(), CustomError> {

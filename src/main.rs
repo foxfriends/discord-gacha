@@ -42,7 +42,7 @@ enum Action {
 /// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
 ///
 /// Requires a valid purchase order number from https://kittyalyst.com.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, ephemeral)]
 async fn pull(
     ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
@@ -94,17 +94,31 @@ async fn handle_interaction(
         Action::Single => row.pulls.start_banner_single()?,
         Action::Bulk => row.pulls.start_banner_bulk()?,
         Action::Pull(index) => {
-            let pool = row.pulls.check_slot(index).ok_or_else(|| {
-                CustomError("There is no currently active pull".to_owned())
-            })?;
+            let pool = row
+                .pulls
+                .check_slot(index)
+                .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
             let product = data.pools.pull(pool);
             row.pulls.pull_slot(index, product)?;
         }
-        Action::Share => {}
+        Action::Share => {
+            let response = row
+                .pulls
+                .to_share_message(format!("<@{}>", row.discord_user_id))?;
+            ctx.http
+                .create_interaction_response(
+                    interaction.id,
+                    &interaction.token,
+                    &CreateInteractionResponse::Acknowledge,
+                    vec![],
+                )
+                .await?;
+            interaction.channel_id.send_message(&ctx.http, response).await?;
+            return Ok(());
+        }
     }
 
     let message = row.pulls.to_message(row.order_number)?;
-
     data.sheets.save(row).await?;
     let (response, files) = message.into_interaction_response();
     ctx.http
@@ -159,7 +173,7 @@ async fn main() {
     println!("{}", pools.distribution());
 
     println!(
-        "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions2048=&scope=bot%20applications.commands",
+        "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=34816&scope=bot%20applications.commands",
         std::env::var("DISCORD_APPLICATION_ID").expect("DISCORD_APPLICATION_ID is required")
     );
 

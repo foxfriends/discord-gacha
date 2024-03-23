@@ -34,7 +34,7 @@ impl Row {
             self.discord_username,
             serde_json::to_string(&self.pulls).unwrap(),
         ];
-        values.extend(self.pulls.skus());
+        values.extend(self.pulls.names());
         values
     }
 }
