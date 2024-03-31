@@ -41,7 +41,8 @@ impl Client {
                 "discord_user_id": discord_user_id,
             }},
             items: vec![Item { sku, quantity: 1 }],
-        }).await
+        })
+        .await
     }
 
     async fn log_order(&self, order: OrderData) -> Result<(), crate::Error> {

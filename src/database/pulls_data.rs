@@ -249,7 +249,7 @@ impl PullsData {
         })
     }
 
-    pub fn to_share_message(
+    pub fn into_share_message(
         self,
         discord_reference: String,
     ) -> Result<CreateMessage, crate::Error> {

@@ -117,7 +117,7 @@ async fn handle_interaction(
         Action::Share => {
             let response = row
                 .pulls
-                .to_share_message(format!("<@{}>", row.discord_user_id))?;
+                .into_share_message(format!("<@{}>", row.discord_user_id))?;
             ctx.http
                 .create_interaction_response(
                     interaction.id,
