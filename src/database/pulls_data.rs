@@ -80,6 +80,7 @@ impl PullsData {
         }
     }
 
+    #[allow(dead_code)]
     pub fn skus(&self) -> impl Iterator<Item = String> + '_ {
         self.bulk_pulls
             .iter()
