@@ -7,6 +7,7 @@ mod config;
 mod database;
 mod error;
 mod graphql;
+mod inventory;
 mod shopify;
 
 use config::{Pools, Products};
@@ -18,6 +19,7 @@ struct Data {
     shopify: shopify::Client,
     sheets: Sheets,
     pools: Pools,
+    inventory: inventory::Client,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -99,6 +101,17 @@ async fn handle_interaction(
                 .check_slot(index)
                 .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
             let product = data.pools.pull(pool);
+            if let Err(error) = data
+                .inventory
+                .log_pull(
+                    interaction.user.id.to_string(),
+                    interaction_id.order_number,
+                    product.sku.clone(),
+                )
+                .await
+            {
+                log::error!("Error saving order to inventory: {}", error);
+            }
             row.pulls.pull_slot(index, product)?;
         }
         Action::Share => {
@@ -113,7 +126,10 @@ async fn handle_interaction(
                     vec![],
                 )
                 .await?;
-            interaction.channel_id.send_message(&ctx.http, response).await?;
+            interaction
+                .channel_id
+                .send_message(&ctx.http, response)
+                .await?;
             return Ok(());
         }
     }
@@ -194,11 +210,15 @@ async fn main() {
                     std::env::var("SHOPIFY_SHOP").expect("SHOPIFY_SHOP is required"),
                     std::env::var("SHOPIFY_TOKEN").expect("SHOPIFY_TOKEN is required"),
                 );
+                let inventory = inventory::Client::new(
+                    &std::env::var("INVENTORY_URL").expect("INVENTORY_URL is required"),
+                );
 
                 Ok(Data {
                     shopify,
                     sheets,
                     pools,
+                    inventory,
                 })
             })
         })
