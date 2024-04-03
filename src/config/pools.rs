@@ -16,14 +16,14 @@ impl Pools {
     pub fn pull(&self, pool: Pool, inventory: HashMap<String, usize>) -> &Product {
         let pool = self.0.get(&pool).unwrap();
         let pool: Vec<_> = pool
-            .into_iter()
+            .iter()
             .filter(|item| inventory.get(&item.sku).copied().unwrap_or(0) > 0)
             .collect();
         let weights = pool.iter().map(|product| product.rarity);
         let weighted = WeightedIndex::new(weights).unwrap();
         let mut rng = thread_rng();
         let index = weighted.sample(&mut rng);
-        &pool[index]
+        pool[index]
     }
 }
 
