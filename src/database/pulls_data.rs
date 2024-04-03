@@ -101,6 +101,15 @@ impl PullsData {
             .map(|product| product.name.to_owned())
     }
 
+    pub fn already(&self) -> impl Iterator<Item = String> + '_ {
+        self.active
+            .as_banner()
+            .into_iter()
+            .flat_map(|banner| banner.pulls.iter())
+            .flatten()
+            .map(|product| product.sku.to_owned())
+    }
+
     fn pulled_singles(&self) -> usize {
         let past: usize = self.single_pulls.iter().map(|pull| pull.pulled()).sum();
         let active = match &self.active {

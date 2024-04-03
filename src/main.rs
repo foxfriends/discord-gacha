@@ -104,7 +104,7 @@ async fn handle_interaction(
                 .pulls
                 .check_slot(index)
                 .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
-            let product = data.pools.pull(pool, inventory);
+            let product = data.pools.pull(pool, row.pulls.already().collect(), inventory);
             if let Err(error) = data
                 .inventory
                 .log_pull(
