@@ -1,22 +1,23 @@
+use crate::shopify::OrderNumber;
 use reqwest::Url;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-use crate::{error::CustomError, shopify::OrderNumber};
+use std::collections::HashMap;
 
 pub struct Client {
     url: Url,
     client: reqwest::Client,
 }
 
-#[derive(Serialize)]
-struct Item {
+#[derive(Deserialize, Serialize)]
+pub struct Item {
     sku: String,
     quantity: usize,
 }
 
 #[derive(Serialize)]
 struct OrderData {
+    source: &'static str,
     items: Vec<Item>,
     data: serde_json::Value,
 }
@@ -34,8 +35,9 @@ impl Client {
         discord_user_id: String,
         order_number: OrderNumber,
         sku: String,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), reqwest::Error> {
         self.log_order(OrderData {
+            source: "Discord Gacha",
             data: json! {{
                 "order_number": order_number,
                 "discord_user_id": discord_user_id,
@@ -45,13 +47,26 @@ impl Client {
         .await
     }
 
-    async fn log_order(&self, order: OrderData) -> Result<(), crate::Error> {
+    async fn log_order(&self, order: OrderData) -> Result<(), reqwest::Error> {
         self.client
-            .post(self.url.clone())
+            .post(self.url.join("/custom/orders/create").unwrap())
             .json(&order)
             .send()
-            .await
-            .map_err(|err| CustomError(format!("Failed to log order: {err}")))?;
+            .await?
+            .error_for_status()?;
         Ok(())
+    }
+
+    pub async fn get_inventory(&self) -> Result<HashMap<String, usize>, reqwest::Error> {
+        Ok(self
+            .client
+            .get(self.url.join("/google/view").unwrap())
+            .send()
+            .await?
+            .json::<Vec<Item>>()
+            .await?
+            .into_iter()
+            .map(|item| (item.sku, item.quantity))
+            .collect())
     }
 }

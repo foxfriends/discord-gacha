@@ -96,11 +96,15 @@ async fn handle_interaction(
         Action::Single => row.pulls.start_banner_single()?,
         Action::Bulk => row.pulls.start_banner_bulk()?,
         Action::Pull(index) => {
+            let inventory = data.inventory.get_inventory().await.map_err(|err| {
+                log::error!("Failed to check inventory: {}", err);
+                CustomError("Failed to check shop inventory, try again later.".to_owned())
+            })?;
             let pool = row
                 .pulls
                 .check_slot(index)
                 .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
-            let product = data.pools.pull(pool);
+            let product = data.pools.pull(pool, inventory);
             if let Err(error) = data
                 .inventory
                 .log_pull(
@@ -189,7 +193,7 @@ async fn main() {
     println!("{}", pools.distribution());
 
     println!(
-        "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=34816&scope=bot%20applications.commands",
+        "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=274877941760&scope=bot%20applications.commands",
         std::env::var("DISCORD_APPLICATION_ID").expect("DISCORD_APPLICATION_ID is required")
     );
 
