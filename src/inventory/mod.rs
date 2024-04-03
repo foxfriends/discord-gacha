@@ -7,6 +7,7 @@ use std::collections::HashMap;
 pub struct Client {
     url: Url,
     client: reqwest::Client,
+    is_enabled: bool,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -23,10 +24,12 @@ struct OrderData {
 }
 
 impl Client {
-    pub fn new(url: &str) -> Self {
+    pub fn new(url: &str, is_enabled: bool) -> Self {
+        log::info!("Inventory logging active: {is_enabled}");
         Self {
             url: url.parse().unwrap(),
             client: reqwest::Client::new(),
+            is_enabled,
         }
     }
 
@@ -48,6 +51,9 @@ impl Client {
     }
 
     async fn log_order(&self, order: OrderData) -> Result<(), reqwest::Error> {
+        if !self.is_enabled {
+            return Ok(());
+        }
         self.client
             .post(self.url.join("/custom/orders/create").unwrap())
             .json(&order)

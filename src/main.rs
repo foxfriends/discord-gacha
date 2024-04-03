@@ -216,6 +216,7 @@ async fn main() {
                 );
                 let inventory = inventory::Client::new(
                     &std::env::var("INVENTORY_URL").expect("INVENTORY_URL is required"),
+                    std::env::var("INVENTORY_ENABLED").is_ok(),
                 );
 
                 Ok(Data {
