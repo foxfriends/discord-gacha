@@ -72,7 +72,7 @@ async fn pull(
         });
     log::debug!("Pull state: {:#?}", row);
 
-    let message = row.pulls.to_message(order_number)?;
+    let message = row.pulls.to_message(order_number, None)?;
     data.sheets.save(row).await?;
     ctx.send(message.into_reply()).await?;
 
@@ -92,6 +92,7 @@ async fn handle_interaction(
         .await?
         .ok_or_else(|| CustomError("Pull data for this order could not be found.".to_owned()))?;
 
+    let mut error = None;
     match interaction_id.action {
         Action::Single => row.pulls.start_banner_single()?,
         Action::Bulk => row.pulls.start_banner_bulk()?,
@@ -104,7 +105,9 @@ async fn handle_interaction(
                 .pulls
                 .check_slot(index)
                 .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
-            let product = data.pools.pull(pool, row.pulls.already().collect(), inventory);
+            let product = data
+                .pools
+                .pull(pool, row.pulls.already().collect(), inventory);
             if let Err(error) = data
                 .inventory
                 .log_pull(
@@ -116,7 +119,7 @@ async fn handle_interaction(
             {
                 log::error!("Error saving order to inventory: {}", error);
             }
-            row.pulls.pull_slot(index, product)?;
+            error = row.pulls.pull_slot(index, product).err();
         }
         Action::Share => {
             let response = row
@@ -138,7 +141,7 @@ async fn handle_interaction(
         }
     }
 
-    let message = row.pulls.to_message(row.order_number)?;
+    let message = row.pulls.to_message(row.order_number, error)?;
     data.sheets.save(row).await?;
     let (response, files) = message.into_interaction_response();
     ctx.http

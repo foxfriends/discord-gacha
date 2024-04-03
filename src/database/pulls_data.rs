@@ -128,7 +128,11 @@ impl PullsData {
         }
     }
 
-    pub fn to_message(&self, order_number: OrderNumber) -> Result<Message, crate::Error> {
+    pub fn to_message(
+        &self,
+        order_number: OrderNumber,
+        error: Option<CustomError>,
+    ) -> Result<Message, crate::Error> {
         let singles_available = self.singles - self.pulled_singles();
         let bulks_available = self.bulks - self.pulled_bulks();
 
@@ -249,6 +253,10 @@ impl PullsData {
                 &mut message,
                 "Choose an option below to continue summoning."
             )?;
+        }
+
+        if let Some(error) = error {
+            writeln!(&mut message, "An error has occurred, please try again. ({error})")?;
         }
 
         Ok(Message {
