@@ -73,8 +73,8 @@ async fn pull(
     log::debug!("Pull state: {:#?}", row);
 
     let message = row.pulls.to_message(order_number, None)?;
-    data.sheets.save(row).await?;
     ctx.send(message.into_reply()).await?;
+    data.sheets.save(row).await?;
 
     Ok(())
 }
@@ -142,7 +142,6 @@ async fn handle_interaction(
     }
 
     let message = row.pulls.to_message(row.order_number, error)?;
-    data.sheets.save(row).await?;
     let (response, files) = message.into_interaction_response();
     ctx.http
         .create_interaction_response(
@@ -152,6 +151,7 @@ async fn handle_interaction(
             files,
         )
         .await?;
+    data.sheets.save(row).await?;
     Ok(())
 }
 
