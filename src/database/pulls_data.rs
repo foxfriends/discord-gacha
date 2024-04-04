@@ -131,7 +131,7 @@ impl PullsData {
     pub fn to_message(
         &self,
         order_number: OrderNumber,
-        error: Option<CustomError>,
+        extra: Option<String>,
     ) -> Result<Message, crate::Error> {
         let singles_available = self.singles - self.pulled_singles();
         let bulks_available = self.bulks - self.pulled_bulks();
@@ -255,8 +255,8 @@ impl PullsData {
             )?;
         }
 
-        if let Some(error) = error {
-            writeln!(&mut message, "An error has occurred, please try again. ({error})")?;
+        if let Some(extra) = extra {
+            writeln!(&mut message, "\n{extra}")?;
         }
 
         Ok(Message {

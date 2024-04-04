@@ -92,7 +92,7 @@ async fn handle_interaction(
         .await?
         .ok_or_else(|| CustomError("Pull data for this order could not be found.".to_owned()))?;
 
-    let mut error = None;
+    let mut extra = None;
     match interaction_id.action {
         Action::Single => row.pulls.start_banner_single()?,
         Action::Bulk => row.pulls.start_banner_bulk()?,
@@ -119,7 +119,14 @@ async fn handle_interaction(
             {
                 log::error!("Error saving order to inventory: {}", error);
             }
-            error = row.pulls.pull_slot(index, product).err();
+            extra = Some(
+                row.pulls
+                    .pull_slot(index, product)
+                    .map(|()| format!("You got **{}**!", product.name))
+                    .unwrap_or_else(|error| {
+                        format!("An error has occurred, please try again. ({error})")
+                    }),
+            );
         }
         Action::Share => {
             let response = row
@@ -141,7 +148,7 @@ async fn handle_interaction(
         }
     }
 
-    let message = row.pulls.to_message(row.order_number, error)?;
+    let message = row.pulls.to_message(row.order_number, extra)?;
     let (response, files) = message.into_interaction_response();
     ctx.http
         .create_interaction_response(

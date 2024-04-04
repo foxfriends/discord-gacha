@@ -53,10 +53,7 @@ impl Banner {
         let assets_dir: PathBuf = "./assets".parse().unwrap();
         for (i, pull) in self.pulls.iter().enumerate() {
             if let Some(pull) = pull {
-                // let Ok(file) = File::open(assets_dir.join(&pull.sku).with_extension("png")) else {
-                //     continue;
-                // };
-                let Ok(file) = File::open(assets_dir.join("EPfea1A").with_extension("png")) else {
+                let Ok(file) = File::open(assets_dir.join(&pull.sku).with_extension("png")) else {
                     continue;
                 };
                 let reader = BufReader::new(file);
