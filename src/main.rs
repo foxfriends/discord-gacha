@@ -41,11 +41,11 @@ enum Action {
     Share,
 }
 
-/// Take a pull on Kittyalyst's Fire Emblem Gacha Machine.
+/// Summon enamel pins on Kittyalyst's gacha machine.
 ///
 /// Requires a valid purchase order number from https://kittyalyst.com.
 #[poise::command(slash_command, ephemeral)]
-async fn pull(
+async fn summon(
     ctx: Context<'_>,
     #[description = "Order Number"] order_number: OrderNumber,
 ) -> Result<(), Error> {
@@ -209,7 +209,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![pull()],
+            commands: vec![summon()],
             event_handler,
             ..Default::default()
         })
