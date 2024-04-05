@@ -1,8 +1,8 @@
 use poise::dispatch::FrameworkContext;
 use poise::serenity_prelude::{self as serenity, *};
 use poise::BoxFuture;
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 mod config;
 mod database;
@@ -71,7 +71,10 @@ async fn summon(
         });
     if row.discord_user_id != ctx.interaction.user.id.to_string() {
         log::warn!("Wrong user pulled for order {}", order_number);
-        ctx.say("This order number has already been pulled by someone else. Are you sure it's yours?").await?;
+        ctx.say(
+            "This order number has already been pulled by someone else. Are you sure it's yours?",
+        )
+        .await?;
         return Ok(());
     }
     log::debug!("Pull state: {:#?}", row);
@@ -144,6 +147,15 @@ async fn handle_interaction(
                     vec![],
                 )
                 .await?;
+            log::info!(
+                "Sending share to {} ({})",
+                interaction.channel_id,
+                interaction
+                    .channel
+                    .as_ref()
+                    .and_then(|chan| chan.name.as_deref())
+                    .unwrap_or("unknown")
+            );
             interaction
                 .channel_id
                 .send_message(&ctx.http, response)
@@ -214,7 +226,6 @@ async fn main() {
 
     let pools = products.into_pools();
     println!("{}", pools.distribution());
-
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=274877941760&scope=bot%20applications.commands",
