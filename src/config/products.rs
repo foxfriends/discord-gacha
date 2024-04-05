@@ -12,6 +12,10 @@ impl Products {
         toml::from_str(s)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &Product> + '_ {
+        self.product.iter()
+    }
+
     pub fn into_pools(self) -> Pools {
         Pools(
             self.product

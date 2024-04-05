@@ -1,6 +1,7 @@
 use poise::dispatch::FrameworkContext;
 use poise::serenity_prelude::{self as serenity, *};
 use poise::BoxFuture;
+use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 mod config;
@@ -30,8 +31,6 @@ struct InteractionType {
     order_number: OrderNumber,
     action: Action,
 }
-
-const PRODUCTS: &str = include_str!("../products.toml");
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 enum Action {
@@ -199,8 +198,18 @@ async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
 
-    let pools = Products::from_toml(PRODUCTS).unwrap().into_pools();
+    let products = std::fs::read_to_string("./products.toml").expect("products.toml must exist");
+    let products = Products::from_toml(&products).unwrap();
+    let assets_dir: PathBuf = "./assets/".parse().unwrap();
+    for product in products.iter() {
+        if !assets_dir.join(&product.sku).with_extension("png").exists() {
+            log::warn!("Missing image for {}", product.sku)
+        }
+    }
+
+    let pools = products.into_pools();
     println!("{}", pools.distribution());
+
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=274877941760&scope=bot%20applications.commands",
