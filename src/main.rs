@@ -69,6 +69,11 @@ async fn summon(
                 PullsData::new(3, 2),
             )
         });
+    if row.discord_user_id != ctx.interaction.user.id.to_string() {
+        log::warn!("Wrong user pulled for order {}", order_number);
+        ctx.say("This order number has already been pulled by someone else. Are you sure it's yours?").await?;
+        return Ok(());
+    }
     log::debug!("Pull state: {:#?}", row);
 
     let message = row.pulls.to_message(order_number, None)?;
