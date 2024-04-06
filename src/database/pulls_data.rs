@@ -1,9 +1,10 @@
-use crate::config::{Banner, Pool, Product};
+use crate::config::{Banner, Pool, Product, Products};
 use crate::shopify::OrderNumber;
 use crate::{Action, CustomError, InteractionType};
 use poise::serenity_prelude::*;
 use poise::CreateReply;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Write;
 
 pub struct Message {
@@ -86,8 +87,7 @@ impl PullsData {
             .iter()
             .chain(self.single_pulls.iter())
             .chain(self.active.as_banner())
-            .flat_map(|banner| banner.pulls.iter())
-            .flatten()
+            .flat_map(|banner| banner.pulled_products())
             .map(|product| product.sku.to_owned())
     }
 
@@ -96,18 +96,8 @@ impl PullsData {
             .iter()
             .chain(self.single_pulls.iter())
             .chain(self.active.as_banner())
-            .flat_map(|banner| banner.pulls.iter())
-            .flatten()
+            .flat_map(|banner| banner.pulled_products())
             .map(|product| product.name.to_owned())
-    }
-
-    pub fn already(&self) -> impl Iterator<Item = String> + '_ {
-        self.active
-            .as_banner()
-            .into_iter()
-            .flat_map(|banner| banner.pulls.iter())
-            .flatten()
-            .map(|product| product.sku.to_owned())
     }
 
     fn pulled_singles(&self) -> usize {
@@ -154,8 +144,8 @@ impl PullsData {
         };
         if let Some(banner) = continue_banner {
             let mut row = vec![];
-            for (i, pool) in banner.pools.iter().enumerate() {
-                if banner.pulls[i].is_none() {
+            for (i, (slot, rev)) in banner.slots.iter().zip(banner.revealed).enumerate() {
+                if !rev {
                     row.push(
                         CreateButton::new(
                             serde_json::to_string(&InteractionType {
@@ -164,8 +154,8 @@ impl PullsData {
                             })
                             .unwrap(),
                         )
-                        .label(format!("Summon {pool} #{}", i + 1))
-                        .style(match pool {
+                        .label(format!("Summon {} #{}", slot.pool, i + 1))
+                        .style(match slot.pool {
                             Pool::Red => ButtonStyle::Danger,
                             Pool::Green => ButtonStyle::Success,
                             Pool::Blue => ButtonStyle::Primary,
@@ -283,7 +273,7 @@ impl PullsData {
         }
     }
 
-    pub fn pull_slot(&mut self, slot: usize, pull: &Product) -> Result<(), CustomError> {
+    pub fn pull_slot(&mut self, slot: usize) -> Result<(), CustomError> {
         let pulled_singles = self.pulled_singles();
         match &mut self.active {
             ActiveBanner::Single(..) if pulled_singles >= self.singles => {
@@ -293,33 +283,35 @@ impl PullsData {
             }
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) if banner.pulled() == 5 => {
                 return Err(CustomError(
-                    "This pool is empty. Start a new one.".to_owned(),
+                    "This summon is already complete. Start a new one.".to_owned(),
                 ))
             }
-            ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner)
-                if banner.pulls[slot].is_some() =>
-            {
+            ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) if banner.revealed[slot] => {
                 return Err(CustomError(
                     "This hero has already been summoned.".to_owned(),
                 ))
             }
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) => {
-                banner.pulls[slot] = Some(pull.clone());
+                banner.revealed[slot] = true;
             }
             ActiveBanner::None => {
                 return Err(CustomError(
-                    "There is not currently an active pool for this order.".to_owned(),
+                    "There is not currently an active summon for this order.".to_owned(),
                 ));
             }
         }
         Ok(())
     }
 
-    pub fn check_slot(&self, slot: usize) -> Option<Pool> {
-        Some(self.active.as_banner()?.pools[slot])
+    pub fn check_slot(&self, slot: usize) -> Option<&Product> {
+        Some(&self.active.as_banner()?.slots[slot])
     }
 
-    pub fn start_banner_single(&mut self) -> Result<(), CustomError> {
+    pub fn start_banner_single(
+        &mut self,
+        products: &Products,
+        inventory: &HashMap<String, usize>,
+    ) -> Result<(), CustomError> {
         let pulls_remaining = self.singles - self.pulled_singles();
         if pulls_remaining == 0 {
             return Err(CustomError(
@@ -336,12 +328,16 @@ impl PullsData {
                         .to_owned(),
                 ));
             }
-            _ => self.set_active(ActiveBanner::Single(Banner::default())),
+            _ => self.set_active(ActiveBanner::Single(products.banner(inventory))),
         }
         Ok(())
     }
 
-    pub fn start_banner_bulk(&mut self) -> Result<(), CustomError> {
+    pub fn start_banner_bulk(
+        &mut self,
+        products: &Products,
+        inventory: &HashMap<String, usize>,
+    ) -> Result<(), CustomError> {
         let pulls_remaining = self.bulks - self.bulk_pulls.len();
         if pulls_remaining == 0 {
             return Err(CustomError(
@@ -361,7 +357,7 @@ impl PullsData {
                         .to_owned(),
                 ));
             }
-            _ => self.set_active(ActiveBanner::Bulk(Banner::default())),
+            _ => self.set_active(ActiveBanner::Bulk(products.banner(inventory))),
         }
         Ok(())
     }

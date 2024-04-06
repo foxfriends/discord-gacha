@@ -11,7 +11,7 @@ mod graphql;
 mod inventory;
 mod shopify;
 
-use config::{Pools, Products};
+use config::Products;
 use database::{PullsData, Row, Sheets};
 use error::CustomError;
 use shopify::OrderNumber;
@@ -19,7 +19,7 @@ use shopify::OrderNumber;
 struct Data {
     shopify: shopify::Client,
     sheets: Sheets,
-    pools: Pools,
+    products: Products,
     inventory: inventory::Client,
 }
 
@@ -101,20 +101,28 @@ async fn handle_interaction(
 
     let mut extra = None;
     match interaction_id.action {
-        Action::Single => row.pulls.start_banner_single()?,
-        Action::Bulk => row.pulls.start_banner_bulk()?,
-        Action::Pull(index) => {
+        Action::Single => {
             let inventory = data.inventory.get_inventory().await.map_err(|err| {
                 log::error!("Failed to check inventory: {}", err);
                 CustomError("Failed to check shop inventory, try again later.".to_owned())
             })?;
-            let pool = row
+            row.pulls.start_banner_single(&data.products, &inventory)?;
+        }
+        Action::Bulk => {
+            let inventory = data.inventory.get_inventory().await.map_err(|err| {
+                log::error!("Failed to check inventory: {}", err);
+                CustomError("Failed to check shop inventory, try again later.".to_owned())
+            })?;
+            row.pulls.start_banner_bulk(&data.products, &inventory)?;
+        }
+        Action::Pull(index) => {
+            // NOTE: because we're not checking available inventory at this point, there is potential
+            // that two people pull at the same time, queuing up the last of one product, then both
+            // people pull that same product and it becomes oversold. Chances are very low though.
+            let product = row
                 .pulls
                 .check_slot(index)
                 .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
-            let product = data
-                .pools
-                .pull(pool, row.pulls.already().collect(), inventory);
             if let Err(error) = data
                 .inventory
                 .log_pull(
@@ -126,14 +134,13 @@ async fn handle_interaction(
             {
                 log::error!("Error saving order to inventory: {}", error);
             }
-            extra = Some(
-                row.pulls
-                    .pull_slot(index, product)
-                    .map(|()| format!("You got **{}**!", product.name))
-                    .unwrap_or_else(|error| {
-                        format!("An error has occurred, please try again. ({error})")
-                    }),
-            );
+
+            extra = Some(format!("You got **{}**!", product.name));
+            if let Err(error) = row.pulls.pull_slot(index) {
+                extra = Some(format!(
+                    "An error has occurred, please try again. ({error})"
+                ));
+            }
         }
         Action::Share => {
             let response = row
@@ -224,8 +231,7 @@ async fn main() {
         }
     }
 
-    let pools = products.into_pools();
-    println!("{}", pools.distribution());
+    println!("{}", products.distribution());
 
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=274877941760&scope=bot%20applications.commands",
@@ -257,7 +263,7 @@ async fn main() {
                 Ok(Data {
                     shopify,
                     sheets,
-                    pools,
+                    products,
                     inventory,
                 })
             })
