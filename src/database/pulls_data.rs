@@ -324,7 +324,7 @@ impl PullsData {
             }
             ActiveBanner::Bulk(banner) if banner.pulled() != 5 => {
                 return Err(CustomError(
-                    "There is a bulk pull in progress already, which must be completed first."
+                    "There is a bulk summon in progress already, which must be completed first."
                         .to_owned(),
                 ));
             }
@@ -341,19 +341,19 @@ impl PullsData {
         let pulls_remaining = self.bulks - self.bulk_pulls.len();
         if pulls_remaining == 0 {
             return Err(CustomError(
-                "There are no more bulk pulls available for this order".to_owned(),
+                "There are no more bulk summons available for this order".to_owned(),
             ));
         }
         match &self.active {
             ActiveBanner::Single(banner) if banner.pulled() == 0 => {
                 return Err(CustomError(
-                    "There is a single pull in progress already, which must be completed first"
+                    "There is a single summon in progress already, which must be completed first"
                         .to_owned(),
                 ));
             }
             ActiveBanner::Bulk(banner) if banner.pulled() != 5 => {
                 return Err(CustomError(
-                    "There is a bulk pull in progress already, which must be completed first"
+                    "There is a bulk summon in progress already, which must be completed first"
                         .to_owned(),
                 ));
             }

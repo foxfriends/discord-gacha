@@ -25,7 +25,7 @@ struct OrderData {
 
 impl Client {
     pub fn new(url: &str, is_enabled: bool) -> Self {
-        log::info!("Inventory logging active: {is_enabled}");
+        log::warn!("Inventory logging active: {is_enabled}");
         Self {
             url: url.parse().unwrap(),
             client: reqwest::Client::new(),

@@ -2,6 +2,7 @@ use poise::dispatch::FrameworkContext;
 use poise::serenity_prelude::{self as serenity, *};
 use poise::BoxFuture;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 mod config;
@@ -57,28 +58,54 @@ async fn summon(
     let order = data.shopify.get_order(order_number).await?;
     log::debug!("Pulling for order: {:#?}", order);
 
-    let row = data
-        .sheets
-        .get_order(order_number)
-        .await?
-        .unwrap_or_else(|| {
-            Row::new(
-                order_number,
-                ctx.interaction.user.id.to_string(),
-                ctx.interaction.user.name.to_owned(),
-                PullsData::new(3, 2),
-            )
-        });
+    let row = data.sheets.get_order(order_number).await?;
+    let row = match row {
+        Some(row) => row,
+        None => {
+            let (singles, bulks) = if std::env::var("PULLS_FREE").is_ok() {
+                (3, 2)
+            } else {
+                let tickets = data
+                    .products
+                    .ticket
+                    .iter()
+                    .map(|ticket| (&ticket.sku, (ticket.singles, ticket.bulks)))
+                    .collect::<HashMap<_, _>>();
+
+                order
+                    .line_items
+                    .nodes
+                    .iter()
+                    .filter_map(|product| tickets.get(&product.sku))
+                    .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+            };
+
+            if singles == 0 && bulks == 0 {
+                log::warn!("Trying to pull {} with no purchased tickets", order_number);
+                ctx.say("There are no available summons associated with this order.")
+                    .await?;
+                return Ok(());
+            } else {
+                Row::new(
+                    order_number,
+                    ctx.interaction.user.id.to_string(),
+                    ctx.interaction.user.name.to_owned(),
+                    PullsData::new(singles, bulks),
+                )
+            }
+        }
+    };
+
+    log::debug!("Pull state: {:#?}", row);
+
     if row.discord_user_id != ctx.interaction.user.id.to_string() {
         log::warn!("Wrong user pulled for order {}", order_number);
         ctx.say(
-            "This order number has already been pulled by someone else. Are you sure it's yours?",
+            "This order number has already been summoned for by someone else. Are you sure it's yours?",
         )
         .await?;
         return Ok(());
     }
-    log::debug!("Pull state: {:#?}", row);
-
     let message = row.pulls.to_message(order_number, None)?;
     ctx.send(message.into_reply()).await?;
     data.sheets.save(row).await?;
@@ -122,7 +149,7 @@ async fn handle_interaction(
             let product = row
                 .pulls
                 .check_slot(index)
-                .ok_or_else(|| CustomError("There is no currently active pull".to_owned()))?;
+                .ok_or_else(|| CustomError("There is no currently active summon".to_owned()))?;
             if let Err(error) = data
                 .inventory
                 .log_pull(
@@ -232,11 +259,14 @@ async fn main() {
     }
 
     println!("{}", products.distribution());
-
     println!(
         "To add this bot to a server:\n\thttps://discord.com/api/oauth2/authorize?client_id={}&permissions=274877941760&scope=bot%20applications.commands",
         std::env::var("DISCORD_APPLICATION_ID").expect("DISCORD_APPLICATION_ID is required")
     );
+
+    if std::env::var("PULLS_FREE").is_ok() {
+        log::warn!("Pulls are free!");
+    }
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {

@@ -8,8 +8,8 @@ use std::fmt::{self, Display};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Products {
-    ticket: Vec<Ticket>,
-    product: Vec<Product>,
+    pub ticket: Vec<Ticket>,
+    pub product: Vec<Product>,
 }
 
 impl Products {
