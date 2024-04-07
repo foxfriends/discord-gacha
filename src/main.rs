@@ -239,6 +239,10 @@ fn event_handler<'a>(
                 }
                 Ok(())
             }
+            FullEvent::Message { new_message } => {
+                log::info!("{} says: {}", new_message.author.name, new_message.content);
+                Ok(())
+            }
             _ => Ok(()),
         }
     })
