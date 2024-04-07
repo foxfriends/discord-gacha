@@ -239,7 +239,9 @@ fn event_handler<'a>(
                 }
                 Ok(())
             }
-            FullEvent::Message { new_message } => {
+            // Direct messages to the bot can be logged
+            FullEvent::Message { new_message } if new_message.guild_id.is_none() && !new_message.author.bot => {
+                log::debug!("{:#?}", new_message);
                 log::info!("{} says: {}", new_message.author.name, new_message.content);
                 Ok(())
             }

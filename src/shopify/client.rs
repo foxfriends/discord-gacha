@@ -73,7 +73,7 @@ impl Client {
             ))
             .await?;
         if response.orders.nodes.is_empty() {
-            Err(Error::Custom(format!("order {order_number} was not found")))
+            Err(Error::Custom(format!("Order {order_number} was not found. You will find your order number in the email you receive from our shop.")))
         } else {
             Ok(response.orders.nodes.remove(0))
         }
