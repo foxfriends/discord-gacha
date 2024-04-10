@@ -82,7 +82,7 @@ async fn summon(
 
             if singles == 0 && bulks == 0 {
                 log::warn!("Trying to pull {} with no purchased tickets", order_number);
-                ctx.say("There are no available summons associated with this order.")
+                ctx.say("There are no available summons associated with this order. Buy a summon for a valid order number: https://www.kittyalyst.com/products/kitty-emblem-gacha")
                     .await?;
                 return Ok(());
             } else {
