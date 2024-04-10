@@ -43,7 +43,7 @@ enum Action {
 
 /// Summon enamel pins on Kittyalyst's gacha machine.
 ///
-/// Requires a valid purchase order number from https://kittyalyst.com.
+/// Requires a valid purchase order number from https://www.kittyalyst.com/products/kitty-emblem-gacha
 #[poise::command(slash_command, ephemeral)]
 async fn summon(
     ctx: Context<'_>,
