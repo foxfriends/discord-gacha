@@ -77,7 +77,7 @@ async fn summon(
                     .nodes
                     .iter()
                     .filter_map(|product| {
-                        let (single, bulk) = tickets.get(&product.sku)?;
+                        let (single, bulk) = tickets.get(&product.sku.as_ref()?)?;
                         Some((single * product.quantity, bulk * product.quantity))
                     })
                     .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))

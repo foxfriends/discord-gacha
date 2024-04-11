@@ -17,6 +17,6 @@ pub struct Order {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LineItem {
-    pub sku: String,
+    pub sku: Option<String>,
     pub quantity: usize,
 }
