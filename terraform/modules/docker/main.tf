@@ -25,14 +25,18 @@ resource "docker_container" "discord-gacha" {
   name    = var.name
   restart = var.restart
 
+  network_mode = "bridge"
+
   volumes {
     container_path = "/app/assets"
     host_path      = var.assets_dir
+    read_only      = true
   }
 
   volumes {
     container_path = "/app/products.toml"
     host_path      = var.products_file
+    read_only      = true
   }
 
   env = [
