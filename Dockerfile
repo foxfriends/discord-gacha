@@ -12,6 +12,4 @@ ENTRYPOINT ["false"]
 FROM debian:bullseye AS release
 WORKDIR /app
 COPY --from=build /build/target/release/discord-gacha ./
-ENV PORT=3000
-EXPOSE $PORT
 ENTRYPOINT ["./discord-gacha"]
