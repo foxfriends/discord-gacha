@@ -31,6 +31,7 @@ impl Sheets {
 
     pub async fn database(&self) -> Result<HashMap<OrderNumber, Row>, sheets::ClientError> {
         if self.client.is_expired().await != Some(false) {
+            log::debug!("Refreshing access token");
             self.client.refresh_access_token().await?;
         }
         let spreadsheet = self
