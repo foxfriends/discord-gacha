@@ -75,7 +75,7 @@ variable "inventory_url" {
 }
 
 variable "inventory_enabled" {
-  type    = boolean
+  type    = bool
   default = true
 }
 
