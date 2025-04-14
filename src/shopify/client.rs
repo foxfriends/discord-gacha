@@ -1,5 +1,5 @@
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::json;
 
 use super::{Error, Order, OrderNumber};
@@ -73,7 +73,9 @@ impl Client {
             ))
             .await?;
         if response.orders.nodes.is_empty() {
-            Err(Error::Custom(format!("Order {order_number} was not found. You will find your order number in the email you receive from our shop.\n\nBuy a summon here: https://www.kittyalyst.com/products/kitty-emblem-gacha.")))
+            Err(Error::Custom(format!(
+                "Order {order_number} was not found. You will find your order number in the email you receive from our shop.\n\nBuy a summon here: https://www.kittyalyst.com/products/kitty-emblem-gacha."
+            )))
         } else {
             Ok(response.orders.nodes.remove(0))
         }

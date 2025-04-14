@@ -4,6 +4,7 @@ use sheets::types::{
     ValueRenderOption,
 };
 use std::collections::HashMap;
+use std::io::Write;
 
 mod pulls_data;
 mod row;
@@ -12,6 +13,7 @@ use crate::shopify::OrderNumber;
 pub use pulls_data::PullsData;
 pub use row::Row;
 
+#[derive(Clone)]
 pub struct Sheets {
     client: sheets::Client,
     sheet_id: String,
@@ -27,6 +29,42 @@ impl Sheets {
             std::env::var("SHEETS_REFRESH_TOKEN").expect("SHEETS_REFRESH_TOKEN is required"),
         );
         Self { client, sheet_id }
+    }
+
+    pub async fn get_consent(&mut self) -> Result<(), String> {
+        match self.client.refresh_access_token().await {
+            Ok(token) if token.access_token.is_empty() => {}
+            Ok(..) => return Ok(()),
+            Err(error) => {
+                log::error!(
+                    "Failed to get initial Google Sheets access token: {}",
+                    error
+                );
+            }
+        }
+        let url = self
+            .client
+            .user_consent_url(&["https://www.googleapis.com/auth/spreadsheets".to_owned()]);
+        println!("Please authorize Google sheets access: {}", url);
+        let mut url = String::new();
+        print!("Redirected to URL: ");
+        std::io::stdout().flush().unwrap();
+        std::io::stdin().read_line(&mut url).unwrap();
+        let url: reqwest::Url = url.parse().unwrap();
+        let qs = url.query_pairs().collect::<HashMap<_, _>>();
+        let code = qs.get("code").unwrap();
+        let state = qs.get("state").unwrap();
+        let access_token = self
+            .client
+            .get_access_token(code, state)
+            .await
+            .map_err(|err| err.to_string())?;
+        if access_token.access_token.is_empty() {
+            return Err("Did not get a valid access token".to_owned());
+        }
+        println!("SHEETS_ACCESS_TOKEN={}", access_token.access_token);
+        println!("SHEETS_REFRESH_TOKEN={}", access_token.refresh_token);
+        Ok(())
     }
 
     pub async fn database(&self) -> Result<HashMap<OrderNumber, Row>, sheets::ClientError> {

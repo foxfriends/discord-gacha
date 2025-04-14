@@ -1,6 +1,6 @@
 use super::{Pool, Product};
 use image::imageops::overlay;
-use image::{load, load_from_memory_with_format, ImageError, ImageFormat};
+use image::{ImageError, ImageFormat, load, load_from_memory_with_format};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;

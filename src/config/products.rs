@@ -1,6 +1,6 @@
 use super::{Banner, Pool};
-use rand::distributions::weighted::WeightedIndex;
 use rand::distributions::Distribution as _;
+use rand::distributions::weighted::WeightedIndex;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};

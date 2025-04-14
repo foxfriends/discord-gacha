@@ -1,8 +1,8 @@
 use crate::config::{Banner, Pool, Product, Products};
 use crate::shopify::OrderNumber;
 use crate::{Action, CustomError, InteractionType};
-use poise::serenity_prelude::*;
 use poise::CreateReply;
+use poise::serenity_prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -226,7 +226,10 @@ impl PullsData {
         )?;
 
         if continue_banner.is_some() && start_banner {
-            writeln!(&mut message, "You may continue making single summons from the current pool or choose to start a new one.")?;
+            writeln!(
+                &mut message,
+                "You may continue making single summons from the current pool or choose to start a new one."
+            )?;
         }
 
         if continue_banner.is_some() {
@@ -284,12 +287,12 @@ impl PullsData {
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) if banner.pulled() == 5 => {
                 return Err(CustomError(
                     "This summon is already complete. Start a new one.".to_owned(),
-                ))
+                ));
             }
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) if banner.revealed[slot] => {
                 return Err(CustomError(
                     "This hero has already been summoned.".to_owned(),
-                ))
+                ));
             }
             ActiveBanner::Single(banner) | ActiveBanner::Bulk(banner) => {
                 banner.revealed[slot] = true;

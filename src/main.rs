@@ -1,6 +1,6 @@
+use poise::BoxFuture;
 use poise::dispatch::FrameworkContext;
 use poise::serenity_prelude::{self as serenity, *};
-use poise::BoxFuture;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -243,7 +243,9 @@ fn event_handler<'a>(
                 Ok(())
             }
             // Direct messages to the bot can be logged
-            FullEvent::Message { new_message } if new_message.guild_id.is_none() && !new_message.author.bot => {
+            FullEvent::Message { new_message }
+                if new_message.guild_id.is_none() && !new_message.author.bot =>
+            {
                 log::debug!("{:#?}", new_message);
                 log::info!("{} says: {}", new_message.author.name, new_message.content);
                 Ok(())
@@ -277,6 +279,15 @@ async fn main() {
         log::warn!("Pulls are free!");
     }
 
+    let mut sheets =
+        Sheets::new(std::env::var("SHEETS_SHEET_ID").expect("SHEETS_SHEET_ID is required"));
+    if std::env::var("ENV")
+        .map(|var| var == "development")
+        .unwrap_or(false)
+    {
+        sheets.get_consent().await.unwrap();
+    }
+
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![summon()],
@@ -287,9 +298,7 @@ async fn main() {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
-                let sheets = Sheets::new(
-                    std::env::var("SHEETS_SHEET_ID").expect("SHEETS_SHEET_ID is required"),
-                );
+                let sheets = sheets.clone();
                 let shopify = shopify::Client::new(
                     std::env::var("SHOPIFY_SHOP").expect("SHOPIFY_SHOP is required"),
                     std::env::var("SHOPIFY_TOKEN").expect("SHOPIFY_TOKEN is required"),
