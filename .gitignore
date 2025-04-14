@@ -1,3 +1,5 @@
 .env
 /target
+/assets
+!/assets/{red,green,blue,grey,summon}.png
 products.toml
