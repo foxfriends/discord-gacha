@@ -30,7 +30,8 @@ variable "discord_application_id" {
 }
 
 variable "discord_token" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "sheets_sheet_id" {
@@ -42,15 +43,22 @@ variable "sheets_client_id" {
 }
 
 variable "sheets_client_secret" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "sheets_redirect_uri" {
   type = string
 }
 
+variable "sheets_access_token" {
+  type      = string
+  sensitive = true
+}
+
 variable "sheets_refresh_token" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "shopify_shop" {
@@ -58,7 +66,8 @@ variable "shopify_shop" {
 }
 
 variable "shopify_token" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "inventory_url" {

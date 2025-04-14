@@ -46,6 +46,7 @@ resource "docker_container" "discord-gacha" {
     "SHEETS_CLIENT_ID=${var.sheets_client_id}",
     "SHEETS_CLIENT_SECRET=${var.sheets_client_secret}",
     "SHEETS_REDIRECT_URI=${var.sheets_redirect_uri}",
+    "SHEETS_ACCESS_TOKEN=${var.sheets_access_token}",
     "SHEETS_REFRESH_TOKEN=${var.sheets_refresh_token}",
     "SHOPIFY_SHOP=${var.shopify_shop}",
     "SHOPIFY_TOKEN=${var.shopify_token}",
