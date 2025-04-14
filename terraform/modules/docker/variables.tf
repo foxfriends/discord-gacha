@@ -51,11 +51,6 @@ variable "sheets_redirect_uri" {
   type = string
 }
 
-variable "sheets_access_token" {
-  type      = string
-  sensitive = true
-}
-
 variable "sheets_refresh_token" {
   type      = string
   sensitive = true
