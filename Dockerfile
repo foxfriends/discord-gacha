@@ -7,10 +7,10 @@ RUN cargo fetch --locked
 COPY ./assets/ ./assets/
 COPY ./src/ ./src/
 RUN cargo build --release
-ENTRYPOINT ["false"]
+CMD ["false"]
 
 FROM debian:bullseye AS release
 RUN apt-get update && apt-get install -y ca-certificates
 WORKDIR /app
 COPY --from=build /build/target/release/discord-gacha ./
-ENTRYPOINT ["./discord-gacha"]
+CMD ["./discord-gacha"]
