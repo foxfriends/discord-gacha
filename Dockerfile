@@ -10,6 +10,7 @@ RUN cargo build --release
 ENTRYPOINT ["false"]
 
 FROM debian:bullseye AS release
+RUN apt-get update && apt-get install ca-certificates
 WORKDIR /app
 COPY --from=build /build/target/release/discord-gacha ./
 ENTRYPOINT ["./discord-gacha"]
