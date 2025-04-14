@@ -25,10 +25,6 @@ resource "docker_container" "discord-gacha" {
   name    = var.name
   restart = var.restart
 
-  ports {
-    internal = 3000
-  }
-
   volumes {
     container_path = "/app/assets"
     host_path      = var.assets_dir
@@ -53,6 +49,5 @@ resource "docker_container" "discord-gacha" {
     "INVENTORY_URL=${var.inventory_url}",
     "INVENTORY_ENABLED=${var.inventory_enabled}",
     "RUST_LOG=discord_gacha=${var.log_level}",
-    "PORT=3000",
   ]
 }
