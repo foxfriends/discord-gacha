@@ -64,3 +64,13 @@ variable "shopify_token" {
 variable "inventory_url" {
   type = string
 }
+
+variable "inventory_enabled" {
+  type    = boolean
+  default = true
+}
+
+variable "log_level" {
+  type    = string
+  default = "debug"
+}

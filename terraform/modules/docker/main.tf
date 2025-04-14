@@ -50,7 +50,8 @@ resource "docker_container" "discord-gacha" {
     "SHOPIFY_SHOP=${var.shopify_shop}",
     "SHOPIFY_TOKEN=${var.shopify_token}",
     "INVENTORY_URL=${var.inventory_url}",
-    "INVENTORY_ENABLED=true",
+    "INVENTORY_ENABLED=${var.inventory_enabled}",
+    "RUST_LOG=discord_gacha=${var.log_level}",
     "PORT=3000",
   ]
 }
