@@ -2,7 +2,7 @@ FROM rust:1.86.0-bullseye AS build
 WORKDIR /build
 RUN mkdir ./src
 COPY Cargo.toml Cargo.lock . 
-RUN echo 'fn main() {}' >> ./src/main.rs 
+RUN echo 'fn main() {}' > ./src/main.rs 
 RUN cargo fetch --locked
 COPY ./assets/ ./assets/
 COPY ./src/ ./src/
