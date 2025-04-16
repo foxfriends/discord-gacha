@@ -4,3 +4,4 @@
 /.dockerignore
 /products.example.toml
 /target
+/terraform
