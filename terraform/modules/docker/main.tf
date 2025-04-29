@@ -20,6 +20,10 @@ resource "docker_image" "discord-gacha" {
   pull_triggers = [data.docker_registry_image.discord-gacha.sha256_digest]
 }
 
+resource "terraform_data" "products_file_contents" {
+  input = filesha1(var.products_file)
+}
+
 resource "docker_container" "discord-gacha" {
   image   = docker_image.discord-gacha.image_id
   name    = var.name
@@ -54,4 +58,10 @@ resource "docker_container" "discord-gacha" {
     "INVENTORY_ENABLED=${var.inventory_enabled}",
     "RUST_LOG=discord_gacha=${var.log_level}",
   ]
+
+  lifecycle {
+    replace_triggered_by = [
+      terraform_data.products_file_contents,
+    ]
+  }
 }

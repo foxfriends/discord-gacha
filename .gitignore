@@ -3,3 +3,5 @@
 /assets
 !/assets/{red,green,blue,grey,summon}.png
 products.toml
+.terraform
+.terraform.lock.hcl
