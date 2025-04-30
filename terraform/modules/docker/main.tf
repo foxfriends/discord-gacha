@@ -56,7 +56,7 @@ resource "docker_container" "discord-gacha" {
     "SHOPIFY_TOKEN=${var.shopify_token}",
     "INVENTORY_URL=${var.inventory_url}",
     "INVENTORY_ENABLED=${var.inventory_enabled}",
-    "RUST_LOG=discord_gacha=${var.log_level}",
+    "RUST_LOG=error,serenity=warn,discord_gacha=${var.log_level}",
   ]
 
   lifecycle {

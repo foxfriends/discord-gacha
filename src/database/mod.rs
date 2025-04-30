@@ -77,6 +77,7 @@ impl Sheets {
             .spreadsheets()
             .get(&self.sheet_id, false, &[])
             .await?;
+        log::debug!("Sheet retrieved");
         let properties = spreadsheet.body.sheets[0].properties.as_ref().unwrap();
         let grid_properties = properties.grid_properties.as_ref().unwrap();
         let response = self
@@ -101,7 +102,6 @@ impl Sheets {
                 Some(row)
             })
             .collect::<Vec<Row>>();
-
         log::debug!("{} rows loaded", rows.len());
 
         Ok(rows
