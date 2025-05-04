@@ -1,7 +1,24 @@
+# Common variables
 variable "name" {
   type = string
 }
 
+variable "restart" {
+  type    = string
+  default = "unless-stopped"
+}
+
+variable "log_driver" {
+  type    = string
+  default = "local"
+}
+
+variable "log_opts" {
+  type    = map(string)
+  default = {}
+}
+
+# Default variables
 variable "image_name" {
   type    = string
   default = "ghcr.io/foxfriends/discord-gacha"
@@ -12,11 +29,7 @@ variable "image_version" {
   default = "main"
 }
 
-variable "restart" {
-  type    = string
-  default = "unless-stopped"
-}
-
+# Config variables
 variable "assets_dir" {
   type = string
 }

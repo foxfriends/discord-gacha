@@ -29,6 +29,9 @@ resource "docker_container" "discord-gacha" {
   name    = var.name
   restart = var.restart
 
+  log_driver = var.log_driver
+  log_opts   = var.log_opts
+
   network_mode = "bridge"
 
   volumes {
