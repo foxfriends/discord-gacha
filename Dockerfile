@@ -1,4 +1,4 @@
-FROM rust:1.86.0-bullseye AS build
+FROM rust:1.93.0-bullseye AS build
 WORKDIR /build
 RUN mkdir ./src
 COPY Cargo.toml Cargo.lock . 
